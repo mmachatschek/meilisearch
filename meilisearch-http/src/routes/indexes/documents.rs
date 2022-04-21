@@ -1,9 +1,10 @@
 use actix_web::error::PayloadError;
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::web::Bytes;
-use actix_web::HttpMessage;
 use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{FromRequest, HttpMessage};
 use bstr::ByteSlice;
+use futures::future::{err, ok};
 use futures::{Stream, StreamExt};
 use log::debug;
 use meilisearch_error::ResponseError;
@@ -156,8 +157,21 @@ pub struct UpdateDocumentsQuery {
     pub primary_key: Option<String>,
 }
 
+pub struct Fail;
+
+impl FromRequest for Fail {
+    type Error = PayloadError;
+
+    type Future = futures_util::future::Ready<Result<Fail, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, payload: &mut actix_web::dev::Payload) -> Self::Future {
+        err(PayloadError::Overflow)
+    }
+}
+
 pub async fn add_documents(
-    meilisearch: GuardedData<ActionPolicy<{ actions::DOCUMENTS_ADD }>, MeiliSearch>,
+    // meilisearch: GuardedData<ActionPolicy<{ actions::DOCUMENTS_ADD }>, MeiliSearch>,
+    fail: Fail,
     path: web::Path<String>,
     params: web::Query<UpdateDocumentsQuery>,
     body: Payload,
@@ -168,25 +182,27 @@ pub async fn add_documents(
     let params = params.into_inner();
     let index_uid = path.into_inner();
 
-    analytics.add_documents(
-        &params,
-        meilisearch.get_index(index_uid.clone()).await.is_err(),
-        &req,
-    );
+    todo!()
 
-    let allow_index_creation = meilisearch.filters().allow_index_creation;
-    let task = document_addition(
-        extract_mime_type(&req)?,
-        meilisearch,
-        index_uid,
-        params.primary_key,
-        body,
-        IndexDocumentsMethod::ReplaceDocuments,
-        allow_index_creation,
-    )
-    .await?;
-
-    Ok(HttpResponse::Accepted().json(task))
+    // analytics.add_documents(
+    //     &params,
+    //     meilisearch.get_index(index_uid.clone()).await.is_err(),
+    //     &req,
+    // );
+    //
+    // let allow_index_creation = meilisearch.filters().allow_index_creation;
+    // let task = document_addition(
+    //     extract_mime_type(&req)?,
+    //     meilisearch,
+    //     index_uid,
+    //     params.primary_key,
+    //     body,
+    //     IndexDocumentsMethod::ReplaceDocuments,
+    //     allow_index_creation,
+    // )
+    // .await?;
+    //
+    // Ok(HttpResponse::Accepted().json(task))
 }
 
 pub async fn update_documents(
